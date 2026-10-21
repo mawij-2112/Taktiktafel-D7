@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taktiktafel — D7-Junioren (7:7)</title>
+<style>
+  :root{
+    --pitch-dark:#2c5a3c;
+    --pitch-light:#33643f;
+    --pitch-line:rgba(245,243,234,.85);
+    --chalk:#f5f3ea;
+    --board:#1b2420;
+    --board-2:#232e28;
+    --board-3:#2c3730;
+    --accent:#e8641c;
+    --home:#c23b3b;
+    --away:#2c4a6e;
+    --font-d:"Arial Narrow","Helvetica Neue Condensed","Segoe UI Semibold",sans-serif;
+    --font-b:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--board);font-family:var(--font-b);color:var(--chalk);}
+  .app{display:flex;flex-direction:column;height:100vh;}
+
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 18px;background:var(--board-2);border-bottom:2px solid var(--accent);
+    flex-wrap:wrap;gap:10px;
+  }
+  .topbar h1{
+    font-family:var(--font-d);font-weight:700;font-size:22px;letter-spacing:.5px;
+    margin:0;text-transform:uppercase;color:var(--chalk);
+  }
+  .topbar h1 span{color:var(--accent);}
+  .topbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+
+  button, select{
+    font-family:var(--font-b);font-size:13px;border:1px solid var(--board-3);
+    background:var(--board-3);color:var(--chalk);padding:7px 11px;border-radius:5px;
+    cursor:pointer;transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#374439;border-color:var(--accent);}
+  button:active{transform:translateY(1px);}
+  button.active{background:var(--accent);border-color:var(--accent);color:#1b1200;font-weight:600;}
+  button.small{padding:5px 8px;font-size:12px;}
+  button.danger:hover{background:#8f2f2f;border-color:#c23b3b;}
+
+  .main{display:flex;flex:1;min-height:0;}
+  .sidebar{
+    width:220px;flex-shrink:0;background:var(--board-2);padding:14px;
+    overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+  }
+  .sidebar h2{
+    font-family:var(--font-d);font-size:13px;text-transform:uppercase;letter-spacing:1px;
+    margin:0 0 8px;color:#a9b6ac;border-bottom:1px solid var(--board-3);padding-bottom:6px;
+  }
+  .group{display:flex;flex-direction:column;gap:6px;}
+  .row{display:flex;gap:6px;flex-wrap:wrap;}
+  .row button{flex:1;}
+  .swatches{display:flex;gap:6px;}
+  .swatch{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;}
+  .swatch.active{border-color:var(--chalk);}
+  .hint{font-size:11px;color:#8b988e;line-height:1.4;}
+
+  .pitch-wrap{
+    flex:1;display:flex;align-items:center;justify-content:center;padding:16px;min-width:0;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 2px, transparent 2px 4px),
+      radial-gradient(ellipse at center, #16201a 0%, var(--board) 70%);
+  }
+  #board{width:100%;height:100%;max-width:1200px;touch-action:none;box-shadow:0 10px 40px rgba(0,0,0,.5);border-radius:6px;}
+  .player-g{cursor:grab;}
+  .player-g:active{cursor:grabbing;}
+  .player-label{font-family:var(--font-d);font-weight:700;fill:var(--chalk);text-anchor:middle;dominant-baseline:central;pointer-events:none;font-size:20px;}
+  .draw-hit{cursor:pointer;}
+
+  .timeline{
+    background:var(--board-2);border-top:2px solid var(--accent);
+    padding:10px 16px;display:flex;align-items:center;gap:10px;overflow-x:auto;
+  }
+  .timeline h2{font-family:var(--font-d);font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0;color:#a9b6ac;flex-shrink:0;}
+  .scenes{display:flex;gap:8px;flex-shrink:0;}
+  .scene-chip{
+    position:relative;display:flex;align-items:center;gap:6px;
+    background:var(--board-3);border:1px solid var(--board-3);border-radius:5px;
+    padding:6px 10px;font-size:12px;cursor:pointer;
+  }
+  .scene-chip.active{border-color:var(--accent);color:var(--accent);}
+  .scene-chip .x{color:#c23b3b;font-weight:700;cursor:pointer;padding:0 2px;}
+  .field-toggle{display:flex;gap:4px;}
+  .formation-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .formation-grid button{padding:5px 2px;font-size:11px;text-align:center;}
+  .formation-grid .sub{grid-column:1/-1;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#8b988e;margin-top:4px;}
+
+  @media (max-width:880px){
+    .main{flex-direction:column;}
+    .sidebar{width:100%;flex-direction:row;flex-wrap:wrap;overflow-x:auto;}
+    .sidebar .group{min-width:150px;}
+    .pitch-wrap{order:-1;padding:8px;}
+  }
+  @media print{
+    .topbar-actions, .sidebar, .timeline{display:none !important;}
+    body{background:#fff;}
+    .pitch-wrap{background:#fff;padding:0;}
+    #board{box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <h1>Taktik<span>tafel</span></h1>
+    <div class="topbar-actions">
+      <div class="field-toggle">
+        <button id="btnFullField" class="active small">Vollfeld</button>
+        <button id="btnHalfField" class="small">Halbfeld</button>
+      </div>
+      <div class="field-toggle">
+        <button id="btnQuer" class="active small">Querformat</button>
+        <button id="btnLaengs" class="small">Längsformat</button>
+      </div>
+      <button id="btnSave" class="small">Speichern</button>
+      <button id="btnLoad" class="small">Laden</button>
+      <input type="file" id="loadFileInput" accept=".json" style="display:none">
+      <button id="btnExport" class="small">PNG export</button>
+      <button id="btnPrint" class="small">Drucken</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <aside class="sidebar sidebar-left">
+      <div class="group">
+        <h2>Team A (rot)</h2>
+        <div class="row"><button id="addHome" class="small">+ Spieler</button></div>
+      </div>
+      <div class="group">
+        <h2>Team B (blau)</h2>
+        <div class="row">
+          <button id="addAway" class="small">+ Spieler</button>
+          <button id="mirrorAway" class="small">Spiegeln</button>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Ball</h2>
+        <div class="row"><button id="toggleBall" class="small">Ball ein/aus</button></div>
+      </div>
+      <div class="group">
+        <h2>Grundformation</h2>
+        <select id="baseFormationSelect" style="width:100%;"></select>
+        <div class="row"><button id="setBaseFormation" class="small">Als Grundformation festlegen</button></div>
+        <div class="hint" id="baseFormationHint"></div>
+      </div>
+      <div class="group">
+        <h2>Formationen (Team A)</h2>
+        <div class="formation-grid" id="formationGridHome"></div>
+        <div class="row"><button id="fEmpty" class="small">Leeres Feld</button></div>
+      </div>
+      <div class="group">
+        <h2>Formationen (Team B / Gegner)</h2>
+        <div class="formation-grid" id="formationGridAway"></div>
+        <div class="row"><button id="fEmptyAway" class="small">Leeres Feld</button></div>
+      </div>
+      <div class="hint">Doppelklick auf einen Spieler entfernt ihn. Klick + halten zum Verschieben.</div>
+    </aside>
+
+    <div class="pitch-wrap">
+      <svg id="board" viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+        <g id="boardRotate">
+          <g id="pitchGroup"></g>
+          <g id="drawings"></g>
+          <g id="players"></g>
+          <g id="ballGroup"></g>
+        </g>
+      </svg>
+    </div>
+
+    <aside class="sidebar sidebar-right">
+      <div class="group">
+        <h2>Werkzeug</h2>
+        <div class="row" style="flex-direction:column;">
+          <button data-tool="select" class="tool-btn small active">Auswahl / Verschieben</button>
+          <button data-tool="line" class="tool-btn small">Linie</button>
+          <button data-tool="arrow" class="tool-btn small">Pfeil (Laufweg)</button>
+          <button data-tool="dashed" class="tool-btn small">Pfeil gestrichelt (Pass)</button>
+          <button data-tool="freehand" class="tool-btn small">Freihand</button>
+          <button data-tool="circle" class="tool-btn small">Zone / Kreis</button>
+          <button data-tool="rect" class="tool-btn small">Zone / Rechteck</button>
+          <button data-tool="text" class="tool-btn small">Textmarke</button>
+          <button data-tool="eraser" class="tool-btn small">Radierer</button>
+        </div>
+        <div class="row" style="margin-top:6px;">
+          <button id="btnEditRotate" class="small">Bearbeiten / Drehen / Größe</button>
+        </div>
+        <div class="hint" id="editRotateHint">Bearbeiten: aus — Griffe an Objekten ausgeblendet</div>
+      </div>
+      <div class="group">
+        <h2>Farbe</h2>
+        <div class="swatches">
+          <div class="swatch active" style="background:#f5f3ea" data-color="#f5f3ea"></div>
+          <div class="swatch" style="background:#e8641c" data-color="#e8641c"></div>
+          <div class="swatch" style="background:#ffe14d" data-color="#ffe14d"></div>
+          <div class="swatch" style="background:#4a8f5c" data-color="#4a8f5c"></div>
+          <div class="swatch" style="background:#2c4a6e" data-color="#2c4a6e"></div>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Zeichnung</h2>
+        <div class="row">
+          <button id="undoBtn" class="small">Rückgängig</button>
+          <button id="clearDraw" class="small danger">Alles löschen</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <div class="timeline">
+    <h2>Szenen</h2>
+    <div class="scenes" id="scenes"></div>
+    <button id="addScene" class="small primary">+ Szene speichern</button>
+    <button id="playScenes" class="small">▶ Abspielen</button>
+    <div class="hint" style="margin-left:auto;">Positionen werden animiert übergeblendet, Zeichnungen wechseln pro Szene.</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const svg = document.getElementById('board');
+  const pitchGroup = document.getElementById('pitchGroup');
+  const drawGroup = document.getElementById('drawings');
+  const playersGroup = document.getElementById('players');
+  const ballGroup = document.getElementById('ballGroup');
+
+  // D7-Junioren (7:7): Spielfeld ca. 70 x 35 m, Maßstab 12 px je Meter.
+  // Basis-Koordinatenraum (Längsformat, Tore oben/unten): W x H = 480 x 900 (Feld 420 x 840 + Rand M).
+  const S = 12, M = 30, W = 480, H = 900;
+
+  let state = {
+    players: [], // {id, team:'home'|'away', num, x, y}
+    ball: {visible:true, x:W/2, y:H/2},
+    drawings: [], // {id, type, color, points:[{x,y}] or {x,y,r} or {x,y,text}}
+    scenes: []
+  };
+
+  let idCounter = 1;
+  const nextId = () => idCounter++;
+
+  let tool = 'select';
+  let activeColor = '#f5f3ea';
+  let dragPlayer = null;
+  let dragDrawing = null;
+  let dragDrawingOrigin = null;     // Pointer-Position bei Drag-Start
+  let dragDrawingOrigPoints = null; // Kopie von d.points bei Drag-Start
+  let rotatingDrawing = null;
+  let rotatingBaked = false;        // true bei Linie/Pfeil/Rechteck: Drehung wird direkt in die Punkte eingerechnet
+  let rotateOrigCenter = null;
+  let rotateOrigPoints = null;
+  let rotateStartAngle = null;
+  let resizingDrawing = null;       // id der aktuell in Größe/Länge veränderten Zeichnung
+  let resizeMode = null;            // 'endpoint' | 'circle' | 'scale' | 'text'
+  let resizeHandleIndex = null;     // bei 'endpoint': welcher Punkt (0/1) wird gezogen
+  let resizeOrigCenter = null;
+  let resizeOrigPoints = null;
+  let resizeOrigDist = null;
+  let resizeOrigFontSize = null;
+  let rotateMode = false; // zeigt/erlaubt Dreh- und Größengriffe an allen Objekten nur wenn aktiv
+  let drawingNow = null;
+  let undoStack = [];
+
+  function angleOf(pt, center){ return Math.atan2(pt.y-center.y, pt.x-center.x) * 180/Math.PI; }
+  function rotatePoint(p, deg, center){
+    const rad = deg * Math.PI/180, cos = Math.cos(rad), sin = Math.sin(rad);
+    const dx = p.x-center.x, dy = p.y-center.y;
+    return { x: center.x + dx*cos - dy*sin, y: center.y + dx*sin + dy*cos };
+  }
+
+  /* ---------------- pitch markings ---------------- */
+  // D7-Junioren (7:7): Feld 70 x 35 m, Tore 5 x 2 m, Torraum 4 m (Abgrenzung entfällt),
+  // Strafraum 12 m (Hütchen), Strafstoß 8 m, Mittelkreis 9,15 m, lange Ecken.
+  function drawPitch(){
+    let s = '';
+    const T = H-2*M;                 // Feldlänge in px (70 m)
+    const stripes = 14;              // 14 Streifen = 5 m je Streifen
+    for(let i=0;i<stripes;i++){
+      const y = M + i*T/stripes;
+      s += `<rect x="${M}" y="${y}" width="${W-2*M}" height="${T/stripes}" fill="${i%2===0?'var(--pitch-light)':'var(--pitch-dark)'}"/>`;
+    }
+    s += `<rect x="${M}" y="${M}" width="${W-2*M}" height="${T}" fill="none" stroke="var(--pitch-line)" stroke-width="3"/>`;
+    // Mittellinie (horizontal) + Mittelkreis (Radius 9,15 m)
+    s += `<line x1="${M}" y1="${H/2}" x2="${W-M}" y2="${H/2}" stroke="var(--pitch-line)" stroke-width="2.5"/>`;
+    s += `<circle cx="${W/2}" cy="${H/2}" r="${(9.15*S).toFixed(1)}" fill="none" stroke="var(--pitch-line)" stroke-width="2.5"/>`;
+    s += `<circle cx="${W/2}" cy="${H/2}" r="3" fill="var(--pitch-line)"/>`;
+    [ {y:M, dir:1}, {y:H-M, dir:-1} ].forEach(({y,dir})=>{
+      // Strafraum: 12 m tief über die volle Feldbreite, Markierung mit flachen Hütchen an den Seitenlinien
+      // (gestrichelte Linie). Die Hütchen markieren zugleich den Ausführungspunkt der langen Ecke.
+      const lineY = y + dir*12*S;
+      s += `<line x1="${M}" y1="${lineY}" x2="${W-M}" y2="${lineY}" stroke="var(--pitch-line)" stroke-width="2.5" stroke-dasharray="9,7"/>`;
+      [M, W-M].forEach(cx=>{
+        s += `<circle cx="${cx}" cy="${lineY}" r="7" fill="#e8641c" stroke="#f5f3ea" stroke-width="2"/>`;
+      });
+      // Strafstoßpunkt: 8 m
+      s += `<circle cx="${W/2}" cy="${y + dir*8*S}" r="3" fill="var(--pitch-line)"/>`;
+      // Tor: 5 x 2 m
+      const goalW = 5*S;
+      s += `<rect x="${W/2-goalW/2}" y="${dir>0?y-6:y}" width="${goalW}" height="6" fill="none" stroke="var(--chalk)" stroke-width="3"/>`;
+    });
+    pitchGroup.innerHTML = s;
+  }
+  drawPitch();
+
+  /* ---------------- coordinate helpers ---------------- */
+  let orientation = 'quer'; // 'quer' | 'laengs'
+  let fieldMode = 'full';   // 'full' | 'half'
+  // Basisraum ist immer Längsformat (W x H = 480 x 900, Tore oben/unten). Querformat ist dieselbe
+  // Szene um 90° gedreht (Tore links/rechts) — gespeicherte Positionen bleiben unverändert.
+  function svgPoint(evt){
+    const pt = svg.createSVGPoint();
+    const t = evt.touches ? evt.touches[0] : evt;
+    pt.x = t.clientX; pt.y = t.clientY;
+    const raw = pt.matrixTransform(svg.getScreenCTM().inverse());
+    if(orientation === 'quer'){
+      // Inverse von transform="translate(H,0) rotate(90)" auf der boardRotate-Gruppe
+      return {x: raw.y, y: H - raw.x};
+    }
+    return {x: raw.x, y: raw.y};
+  }
+  function applyViewport(){
+    const boardRotate = document.getElementById('boardRotate');
+    if(orientation === 'quer'){
+      boardRotate.setAttribute('transform',`translate(${H},0) rotate(90)`);
+      svg.setAttribute('viewBox', fieldMode==='full' ? `0 0 ${H} ${W}` : `0 0 ${H/2} ${W}`);
+    } else {
+      boardRotate.setAttribute('transform','');
+      svg.setAttribute('viewBox', fieldMode==='full' ? `0 0 ${W} ${H}` : `0 ${H/2} ${W} ${H/2}`);
+    }
+  }
+
+  /* ---------------- players ---------------- */
+  function addPlayer(team, x, y){
+    const teamPlayers = state.players.filter(p=>p.team===team);
+    const num = teamPlayers.length + 1;
+    state.players.push({id:nextId(), team, num, x: x ?? W/2, y: y ?? (team==='home'?H-116:116)});
+    renderPlayers();
+  }
+
+  function renderPlayers(){
+    playersGroup.innerHTML = '';
+    state.players.forEach(p=>{
+      const color = p.team==='home' ? 'var(--home)' : 'var(--away)';
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('class','player-g');
+      g.style.touchAction = 'none';
+      g.setAttribute('transform', `translate(${p.x},${p.y})`);
+      g.dataset.id = p.id;
+      g.innerHTML = `
+        <circle r="20" fill="${color}" stroke="var(--chalk)" stroke-width="2.5"></circle>
+        <text class="player-label" x="0" y="1">${p.num}</text>
+      `;
+      g.addEventListener('pointerdown', onPlayerDown);
+      g.addEventListener('dblclick', (e)=>{
+        e.stopPropagation();
+        state.players = state.players.filter(pl=>pl.id!==p.id);
+        renderPlayers();
+      });
+      playersGroup.appendChild(g);
+    });
+  }
+
+  function onPlayerDown(evt){
+    if(tool !== 'select') return;
+    evt.stopPropagation();
+    const id = parseInt(evt.currentTarget.dataset.id,10);
+    dragPlayer = id;
+    evt.currentTarget.setPointerCapture(evt.pointerId);
+  }
+
+  svg.addEventListener('pointermove', (evt)=>{
+    if(dragPlayer !== null){
+      const pt = svgPoint(evt);
+      const p = state.players.find(pl=>pl.id===dragPlayer);
+      if(p){ p.x = pt.x; p.y = pt.y; renderPlayers(); }
+      return;
+    }
+    if(dragDrawing !== null){
+      const pt = svgPoint(evt);
+      const dr = state.drawings.find(d=>d.id===dragDrawing);
+      if(dr && dragDrawingOrigin && dragDrawingOrigPoints){
+        const dx = pt.x - dragDrawingOrigin.x, dy = pt.y - dragDrawingOrigin.y;
+        dr.points = dragDrawingOrigPoints.map(p=>({x:p.x+dx, y:p.y+dy}));
+        renderDrawings();
+      }
+      return;
+    }
+    if(rotatingDrawing !== null){
+      const pt = svgPoint(evt);
+      const dr = state.drawings.find(d=>d.id===rotatingDrawing);
+      if(dr){
+        if(rotatingBaked && rotateOrigCenter && rotateOrigPoints){
+          const delta = angleOf(pt, rotateOrigCenter) - rotateStartAngle;
+          dr.points = rotateOrigPoints.map(p=>rotatePoint(p, delta, rotateOrigCenter));
+        } else if(dr._rotCenter){
+          const dx = pt.x - dr._rotCenter.x, dy = pt.y - dr._rotCenter.y;
+          dr.rot = (Math.atan2(dy,dx) * 180/Math.PI + 90 + 360) % 360;
+        }
+        renderDrawings();
+      }
+      return;
+    }
+    if(resizingDrawing !== null){
+      const pt = svgPoint(evt);
+      const dr = state.drawings.find(d=>d.id===resizingDrawing);
+      if(dr){
+        if(resizeMode === 'endpoint'){
+          dr.points[resizeHandleIndex] = pt;
+        } else if(resizeMode === 'circle'){
+          const dx = pt.x-resizeOrigCenter.x, dy = pt.y-resizeOrigCenter.y;
+          dr.r = Math.max(6, Math.hypot(dx,dy));
+        } else if(resizeMode === 'scale' && resizeOrigPoints){
+          const newDist = Math.hypot(pt.x-resizeOrigCenter.x, pt.y-resizeOrigCenter.y);
+          const scale = Math.max(0.25, Math.min(6, newDist/(resizeOrigDist||1)));
+          dr.points = resizeOrigPoints.map(p=>({
+            x: resizeOrigCenter.x + (p.x-resizeOrigCenter.x)*scale,
+            y: resizeOrigCenter.y + (p.y-resizeOrigCenter.y)*scale
+          }));
+        } else if(resizeMode === 'text'){
+          const newDist = Math.hypot(pt.x-resizeOrigCenter.x, pt.y-resizeOrigCenter.y);
+          const scale = newDist/(resizeOrigDist||1);
+          dr.fontSize = Math.max(10, Math.min(72, Math.round(resizeOrigFontSize*scale)));
+        }
+        renderDrawings();
+      }
+      return;
+    }
+    if(drawingNow){
+      const pt = svgPoint(evt);
+      if(drawingNow.type==='freehand'){
+        drawingNow.points.push({x:pt.x,y:pt.y});
+      } else if(drawingNow.type==='circle'){
+        const dx=pt.x-drawingNow.points[0].x, dy=pt.y-drawingNow.points[0].y;
+        drawingNow.r = Math.sqrt(dx*dx+dy*dy);
+      } else {
+        drawingNow.points[1] = {x:pt.x,y:pt.y};
+      }
+      renderDrawings(true);
+    }
+  });
+
+  svg.addEventListener('pointerup', ()=>{
+    if(dragPlayer !== null){ dragPlayer = null; return; }
+    if(dragDrawing !== null){ dragDrawing = null; dragDrawingOrigin = null; dragDrawingOrigPoints = null; return; }
+    if(rotatingDrawing !== null){
+      rotatingDrawing = null; rotatingBaked = false;
+      rotateOrigCenter = null; rotateOrigPoints = null; rotateStartAngle = null;
+      return;
+    }
+    if(resizingDrawing !== null){
+      resizingDrawing = null; resizeMode = null; resizeHandleIndex = null;
+      resizeOrigCenter = null; resizeOrigPoints = null; resizeOrigDist = null; resizeOrigFontSize = null;
+      return;
+    }
+    if(drawingNow){
+      const d = drawingNow;
+      drawingNow = null;
+      let valid = true;
+      if((d.type==='line' || d.type==='arrow' || d.type==='dashed') && d.points.length>=2){
+        const dx = d.points[1].x-d.points[0].x, dy = d.points[1].y-d.points[0].y;
+        if(Math.sqrt(dx*dx+dy*dy) < 12) valid = false;
+      } else if(d.type==='freehand' && d.points.length < 2){
+        valid = false;
+      } else if(d.type==='circle' && (!d.r || d.r < 8)){
+        valid = false;
+      } else if(d.type==='rect' && d.points.length>=2){
+        const dx = Math.abs(d.points[1].x-d.points[0].x), dy = Math.abs(d.points[1].y-d.points[0].y);
+        if(dx < 8 || dy < 8) valid = false;
+      }
+      if(valid){
+        d.id = nextId();
+        state.drawings.push(d);
+        undoStack.push(d.id);
+      }
+      renderDrawings();
+    }
+  });
+
+  /* ---------------- ball ---------------- */
+  function renderBall(){
+    ballGroup.innerHTML = '';
+    if(!state.ball.visible) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('transform', `translate(${state.ball.x},${state.ball.y})`);
+    g.style.cursor='grab';
+    g.style.touchAction = 'none';
+    g.innerHTML = `
+      <circle r="9" fill="#f5f3ea" stroke="#1b1200" stroke-width="1.5"></circle>
+      <path d="M -3,-4 L 3,-4 L 4,2 L 0,5 L -4,2 Z" fill="#1b1200"></path>
+    `;
+    g.addEventListener('pointerdown', (evt)=>{
+      if(tool!=='select') return;
+      evt.stopPropagation();
+      dragBall = true;
+      g.setPointerCapture(evt.pointerId);
+    });
+    ballGroup.appendChild(g);
+  }
+  let dragBall = false;
+  svg.addEventListener('pointermove', (evt)=>{
+    if(dragBall){
+      const pt = svgPoint(evt);
+      state.ball.x = pt.x; state.ball.y = pt.y;
+      renderBall();
+    }
+  });
+  svg.addEventListener('pointerup', ()=>{ dragBall = false; });
+
+  document.getElementById('toggleBall').onclick = ()=>{
+    state.ball.visible = !state.ball.visible;
+    renderBall();
+  };
+
+  /* ---------------- drawing ---------------- */
+  svg.addEventListener('pointerdown', (evt)=>{
+    if(dragPlayer !== null || dragBall || dragDrawing !== null || rotatingDrawing !== null || resizingDrawing !== null) return;
+    if(tool === 'select') return;
+    const pt = svgPoint(evt);
+
+    if(tool === 'eraser'){
+      const hit = evt.target.closest('[data-drawid]');
+      if(hit){
+        const did = parseInt(hit.dataset.drawid,10);
+        state.drawings = state.drawings.filter(d=>d.id!==did);
+        renderDrawings();
+      }
+      return;
+    }
+    if(tool === 'text'){
+      return; // Erstellung läuft über den click-Handler weiter unten (zuverlässiger für Mobile-Tastatur)
+    }
+    if(tool === 'circle'){
+      drawingNow = {type:'circle', color:activeColor, points:[{x:pt.x,y:pt.y}], r:1};
+    } else {
+      drawingNow = {type:tool, color:activeColor, points: tool==='freehand' ? [{x:pt.x,y:pt.y}] : [{x:pt.x,y:pt.y},{x:pt.x,y:pt.y}]};
+    }
+  });
+
+  svg.addEventListener('click', (evt)=>{
+    if(tool !== 'text') return;
+    if(dragPlayer !== null || dragDrawing !== null || dragBall || rotatingDrawing !== null || resizingDrawing !== null) return;
+    const pt = svgPoint(evt);
+    openTextInput(evt.clientX, evt.clientY, pt);
+  });
+
+  function openTextInput(clientX, clientY, dataPt){
+    const existing = document.getElementById('inlineTextInput');
+    if(existing) existing.remove();
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'inlineTextInput';
+    input.placeholder = 'Text eingeben…';
+    input.style.position = 'fixed';
+    input.style.left = clientX + 'px';
+    input.style.top = clientY + 'px';
+    input.style.zIndex = '1000';
+    input.style.font = '600 16px var(--font-b, sans-serif)';
+    input.style.padding = '6px 10px';
+    input.style.border = '2px solid var(--accent)';
+    input.style.borderRadius = '5px';
+    input.style.background = 'var(--board-2)';
+    input.style.color = 'var(--chalk)';
+    input.style.minWidth = '140px';
+    document.body.appendChild(input);
+    setTimeout(()=> input.focus(), 0);
+    let done = false;
+    function commit(){
+      if(done) return;
+      done = true;
+      const txt = input.value.trim();
+      input.remove();
+      if(txt){
+        state.drawings.push({id:nextId(), type:'text', color:activeColor, points:[{x:dataPt.x,y:dataPt.y}], text:txt, rot:0});
+        renderDrawings();
+      }
+    }
+    function cancel(){
+      if(done) return;
+      done = true;
+      input.remove();
+    }
+    input.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); commit(); }
+      if(e.key === 'Escape'){ e.preventDefault(); cancel(); }
+    });
+    input.addEventListener('blur', ()=> commit());
+  }
+
+  function pathFromPoints(pts){
+    return 'M ' + pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
+  }
+
+  // Diese Typen werden durch "gebackene" Drehung gehandhabt: die Drehung wird direkt in
+  // die Punkte eingerechnet (kein SVG-Transform). Nötig, weil bei ihnen einzelne Endpunkte
+  // per Griff verschoben werden können — mit einem Transform würde sich sonst beim Ziehen
+  // eines Endpunkts der Drehmittelpunkt verschieben und die Form "verspringen".
+  const BAKED_ROTATE_TYPES = ['line','arrow','dashed','rect'];
+
+  // Mittelpunkt einer Zeichnung (Dreh-/Größenzentrum): bei Kreis der Zentrumspunkt selbst,
+  // sonst der Durchschnitt aller Stützpunkte (Mitte bei Linie/Pfeil/Rechteck, Schwerpunkt bei Freihand/Text).
+  function centerOfDrawing(d){
+    if(d.type==='circle') return {x:d.points[0].x, y:d.points[0].y};
+    let sx=0, sy=0;
+    d.points.forEach(p=>{ sx+=p.x; sy+=p.y; });
+    return {x: sx/d.points.length, y: sy/d.points.length};
+  }
+
+  function makeHandle(cx, cy, cursor){
+    const h = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    h.setAttribute('cx', cx); h.setAttribute('cy', cy); h.setAttribute('r','9');
+    h.setAttribute('fill','var(--board-2)'); h.setAttribute('stroke','var(--ok)'); h.setAttribute('stroke-width','2.5');
+    h.style.cursor = cursor;
+    h.style.touchAction = 'none';
+    return h;
+  }
+
+  function attachDrawingInteraction(g, interactive, d, center){
+    interactive.style.cursor = tool==='select' ? 'grab' : 'inherit';
+    interactive.style.touchAction = 'none';
+    interactive.addEventListener('pointerdown', (e)=>{
+      if(tool !== 'select') return;
+      e.stopPropagation();
+      dragDrawing = d.id;
+      dragDrawingOrigin = svgPoint(e);
+      dragDrawingOrigPoints = JSON.parse(JSON.stringify(d.points));
+      e.currentTarget.setPointerCapture(e.pointerId);
+    });
+    g.addEventListener('wheel', (e)=>{
+      if(!rotateMode) return;
+      e.preventDefault();
+      const delta = e.deltaY>0?10:-10;
+      if(BAKED_ROTATE_TYPES.includes(d.type)){
+        d.points = d.points.map(p=>rotatePoint(p, delta, center));
+      } else {
+        d.rot = ((d.rot||0) + delta + 360) % 360;
+      }
+      renderDrawings();
+    }, {passive:false});
+
+    if(!rotateMode || !d.id) return;
+
+    // --- Dreh-Griff (nicht beim Kreis — Drehen eines Kreises hat keinen sichtbaren Effekt) ---
+    if(d.type !== 'circle'){
+      let handleOffset = 34;
+      if(d.type==='rect'){
+        handleOffset = Math.abs(d.points[1].y - d.points[0].y)/2 + 24;
+      } else if(d.type==='text'){
+        handleOffset = 42;
+      }
+      const handleY = center.y - handleOffset;
+      const rotHandle = document.createElementNS('http://www.w3.org/2000/svg','g');
+      rotHandle.innerHTML = `
+        <line x1="${center.x}" y1="${center.y}" x2="${center.x}" y2="${handleY}" stroke="var(--chalk)" stroke-width="1" stroke-dasharray="2,2" opacity=".5"></line>
+        <circle cx="${center.x}" cy="${handleY}" r="6" fill="var(--board-2)" stroke="var(--accent)" stroke-width="2" pointer-events="none"></circle>
+        <circle class="rotate-handle-hit" cx="${center.x}" cy="${handleY}" r="18" fill="transparent"></circle>`;
+      rotHandle.querySelector('.rotate-handle-hit').addEventListener('pointerdown', (e)=>{
+        // Drehen hat immer Priorität — funktioniert unabhängig vom gerade aktiven Werkzeug.
+        e.stopPropagation();
+        rotatingDrawing = d.id;
+        if(BAKED_ROTATE_TYPES.includes(d.type)){
+          rotatingBaked = true;
+          rotateOrigCenter = center;
+          rotateOrigPoints = JSON.parse(JSON.stringify(d.points));
+          rotateStartAngle = angleOf(svgPoint(e), center);
+        } else {
+          rotatingBaked = false;
+        }
+        e.currentTarget.setPointerCapture(e.pointerId);
+      });
+      g.appendChild(rotHandle);
+    }
+
+    // --- Größen-/Längen-Griff(e): Drehen hat weiterhin Priorität, Größe ändern ist gleichwertig
+    // per eigenem Griff erreichbar und blockiert kein Werkzeug. ---
+    if(d.type==='line' || d.type==='arrow' || d.type==='dashed' || d.type==='rect'){
+      d.points.forEach((p, idx)=>{
+        const h = makeHandle(p.x, p.y, 'nwse-resize');
+        h.addEventListener('pointerdown', (e)=>{
+          e.stopPropagation();
+          resizingDrawing = d.id; resizeMode = 'endpoint'; resizeHandleIndex = idx;
+          e.currentTarget.setPointerCapture(e.pointerId);
+        });
+        g.appendChild(h);
+      });
+    } else if(d.type==='circle'){
+      const h = makeHandle(center.x + (d.r||1), center.y, 'ew-resize');
+      h.addEventListener('pointerdown', (e)=>{
+        e.stopPropagation();
+        resizingDrawing = d.id; resizeMode = 'circle'; resizeOrigCenter = center;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      });
+      g.appendChild(h);
+    } else if(d.type==='freehand'){
+      let maxDist=0, handlePt=center;
+      d.points.forEach(p=>{ const dist=Math.hypot(p.x-center.x,p.y-center.y); if(dist>maxDist){ maxDist=dist; handlePt=p; } });
+      const h = makeHandle(handlePt.x, handlePt.y, 'nwse-resize');
+      h.addEventListener('pointerdown', (e)=>{
+        e.stopPropagation();
+        resizingDrawing = d.id; resizeMode = 'scale';
+        resizeOrigCenter = center;
+        resizeOrigPoints = JSON.parse(JSON.stringify(d.points));
+        resizeOrigDist = maxDist || 1;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      });
+      g.appendChild(h);
+    } else if(d.type==='text'){
+      const fontSize = d.fontSize || 24;
+      const hitW = Math.max(50, (d.text||'').length * (fontSize*0.55));
+      const hx = center.x + hitW/2 + 16, hy = center.y;
+      const h = makeHandle(hx, hy, 'ew-resize');
+      h.addEventListener('pointerdown', (e)=>{
+        e.stopPropagation();
+        resizingDrawing = d.id; resizeMode = 'text';
+        resizeOrigCenter = center;
+        resizeOrigDist = Math.hypot(hx-center.x, hy-center.y) || 1;
+        resizeOrigFontSize = fontSize;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      });
+      g.appendChild(h);
+    }
+  }
+
+  function renderDrawings(previewOnly){
+    drawGroup.innerHTML = '';
+    const items = previewOnly ? [...state.drawings, drawingNow].filter(Boolean) : state.drawings;
+    items.forEach(d=>{
+      let el;
+      let hitEl = null;
+      if(d.type==='line' || d.type==='freehand'){
+        el = document.createElementNS('http://www.w3.org/2000/svg','path');
+        el.setAttribute('d', pathFromPoints(d.points));
+        el.setAttribute('fill','none');
+        el.setAttribute('stroke', d.color);
+        el.setAttribute('stroke-width','4');
+        el.setAttribute('stroke-linecap','round');
+        el.setAttribute('stroke-linejoin','round');
+        el.setAttribute('pointer-events','none');
+        hitEl = el.cloneNode();
+        hitEl.setAttribute('stroke','transparent');
+        hitEl.setAttribute('stroke-width','22');
+        hitEl.setAttribute('stroke-linecap','round');
+        hitEl.setAttribute('pointer-events','stroke');
+      } else if(d.type==='arrow' || d.type==='dashed'){
+        el = document.createElementNS('http://www.w3.org/2000/svg','path');
+        el.setAttribute('d', pathFromPoints(d.points));
+        el.setAttribute('fill','none');
+        el.setAttribute('stroke', d.color);
+        el.setAttribute('stroke-width','4');
+        el.setAttribute('marker-end','url(#arrowHead)');
+        if(d.type==='dashed') el.setAttribute('stroke-dasharray','10,8');
+        el.setAttribute('pointer-events','none');
+        hitEl = document.createElementNS('http://www.w3.org/2000/svg','path');
+        hitEl.setAttribute('d', pathFromPoints(d.points));
+        hitEl.setAttribute('fill','none');
+        hitEl.setAttribute('stroke','transparent');
+        hitEl.setAttribute('stroke-width','22');
+        hitEl.setAttribute('stroke-linecap','round');
+        hitEl.setAttribute('pointer-events','stroke');
+      } else if(d.type==='circle'){
+        el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        el.setAttribute('cx', d.points[0].x); el.setAttribute('cy', d.points[0].y);
+        el.setAttribute('r', d.r||1);
+        el.setAttribute('fill', d.color+'22');
+        el.setAttribute('stroke', d.color);
+        el.setAttribute('stroke-width','3');
+      } else if(d.type==='rect'){
+        el = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        const x0=d.points[0].x, y0=d.points[0].y, x1=d.points[1].x, y1=d.points[1].y;
+        el.setAttribute('x', Math.min(x0,x1));
+        el.setAttribute('y', Math.min(y0,y1));
+        el.setAttribute('width', Math.abs(x1-x0));
+        el.setAttribute('height', Math.abs(y1-y0));
+        el.setAttribute('fill', d.color+'22');
+        el.setAttribute('stroke', d.color);
+        el.setAttribute('stroke-width','3');
+      } else if(d.type==='text'){
+        const fontSize = d.fontSize || 24;
+        el = document.createElementNS('http://www.w3.org/2000/svg','text');
+        el.setAttribute('x', d.points[0].x); el.setAttribute('y', d.points[0].y + fontSize*0.33);
+        el.setAttribute('fill', d.color);
+        el.setAttribute('font-family','var(--font-d)');
+        el.setAttribute('font-weight','700');
+        el.setAttribute('font-size', fontSize);
+        el.setAttribute('text-anchor','middle');
+        el.textContent = d.text;
+        el.setAttribute('pointer-events','none');
+        hitEl = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        const hitW = Math.max(50, (d.text||'').length * (fontSize*0.55));
+        const hitH = fontSize + 10;
+        hitEl.setAttribute('x', d.points[0].x - hitW/2); hitEl.setAttribute('y', d.points[0].y - hitH*0.65);
+        hitEl.setAttribute('width', hitW); hitEl.setAttribute('height', hitH);
+        hitEl.setAttribute('fill','transparent');
+      }
+      if(!el) return;
+
+      if(d.id){ el.setAttribute('data-drawid', d.id); if(hitEl) hitEl.setAttribute('data-drawid', d.id); }
+      el.classList.add('draw-hit');
+      if(hitEl) hitEl.classList.add('draw-hit');
+
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      const center = centerOfDrawing(d);
+      if(!BAKED_ROTATE_TYPES.includes(d.type)){
+        d._rotCenter = center;
+        g.setAttribute('transform', `rotate(${d.rot||0} ${center.x} ${center.y})`);
+      }
+      g.appendChild(el);
+      if(hitEl) g.appendChild(hitEl);
+
+      attachDrawingInteraction(g, hitEl || el, d, center);
+
+      drawGroup.appendChild(g);
+    });
+  }
+
+  document.getElementById('undoBtn').onclick = ()=>{
+    const last = undoStack.pop();
+    if(last !== undefined){
+      state.drawings = state.drawings.filter(d=>d.id!==last);
+      renderDrawings();
+    }
+  };
+  document.getElementById('clearDraw').onclick = ()=>{
+    if(confirm('Alle Zeichnungen entfernen?')){
+      state.drawings = []; undoStack=[]; renderDrawings();
+    }
+  };
+
+  /* ---------------- tool + color selection ---------------- */
+  document.querySelectorAll('.tool-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      tool = btn.dataset.tool;
+    });
+  });
+  document.querySelectorAll('.swatch').forEach(sw=>{
+    sw.addEventListener('click', ()=>{
+      document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+      sw.classList.add('active');
+      activeColor = sw.dataset.color;
+    });
+  });
+
+  /* ---------------- Bearbeiten / Drehen / Größe (zeigt Dreh- und Größengriffe an allen Objekten) ---------------- */
+  const btnEditRotate = document.getElementById('btnEditRotate');
+  const editRotateHint = document.getElementById('editRotateHint');
+  function setRotateMode(on){
+    rotateMode = on;
+    btnEditRotate.classList.toggle('active', rotateMode);
+    editRotateHint.textContent = rotateMode
+      ? 'Bearbeiten: an — Dreh- und Größengriffe sichtbar'
+      : 'Bearbeiten: aus — Griffe an Objekten ausgeblendet';
+    renderDrawings();
+  }
+  btnEditRotate.addEventListener('click', ()=> setRotateMode(!rotateMode));
+  function disableRotateMode(){
+    if(rotateMode) setRotateMode(false);
+  }
+
+  /* ---------------- add / mirror players ---------------- */
+  document.getElementById('addHome').onclick = ()=> addPlayer('home', W/2-60+Math.random()*120, H-194+Math.random()*52);
+  document.getElementById('addAway').onclick = ()=> addPlayer('away', W/2-60+Math.random()*120, 142+Math.random()*52);
+  document.getElementById('mirrorAway').onclick = ()=>{
+    state.players = state.players.filter(p=>p.team!=='away');
+    state.players.filter(p=>p.team==='home').forEach(p=>{
+      state.players.push({id:nextId(), team:'away', num:p.num, x:p.x, y:H-p.y});
+    });
+    renderPlayers();
+  };
+
+  /* ---------------- formations (Team A / home) ---------------- */
+  // Alle möglichen Formationen im 7:7: Torwart + 6 Feldspieler, aufgeteilt in 2 bis 6 Reihen
+  // (jede Reihe mind. 1 Spieler) = 31 Presets, von 1-5 bis 1-1-1-1-1-1.
+  // Positionen in Metern: x quer (Feldbreite 35 m), Tiefe ab eigener Torlinie (Feldlänge 70 m).
+  function compositions(total, parts){
+    if(parts === 1) return [[total]];
+    const out = [];
+    for(let first=1; first<=total-(parts-1); first++){
+      compositions(total-first, parts-1).forEach(rest=> out.push([first, ...rest]));
+    }
+    return out;
+  }
+  function lineXs(k){
+    if(k === 1) return [17.5];
+    const half = {2:7.5, 3:12, 4:14, 5:15, 6:15.5}[k];
+    return Array.from({length:k}, (_,i)=> 17.5 - half + i*(2*half/(k-1)));
+  }
+  function buildFormation(lines){
+    const n = lines.length;
+    const dMin = n===2 ? 14 : 13, dMax = n===2 ? 40 : 44;
+    const pts = [[17.5, 3]]; // Torwart
+    lines.forEach((k, j)=>{
+      const d = dMin + j*(dMax-dMin)/(n-1);
+      lineXs(k).forEach(xm=> pts.push([xm, d]));
+    });
+    return pts.map(([xm,dm])=>[M + xm*S, H - M - dm*S]);
+  }
+  // Beliebte Systeme zuerst, danach alle übrigen nach Reihenzahl und Aufbau sortiert.
+  const POPULAR = ['3-1-2','3-3','2-3-1','3-2-1','2-2-2','1-3-2','2-1-2-1','3-1-1-1'];
+  const formations = {};
+  const formationLabels = {};
+  const formationGroups = []; // {title, keys:[...]}
+  (function buildAllFormations(){
+    const all = [];
+    for(let n=2; n<=6; n++) compositions(6, n).forEach(c=> all.push(c));
+    const labelOf = c => c.join('-');
+    all.forEach(c=>{
+      const key = 'f' + c.join('');
+      formations[key] = buildFormation(c);
+      formationLabels[key] = labelOf(c);
+    });
+    const keyOf = lbl => 'f' + lbl.replace(/-/g,'');
+    const popularKeys = POPULAR.map(keyOf).filter(k=>formations[k]);
+    formationGroups.push({title:'Beliebt', keys:popularKeys});
+    for(let n=2; n<=6; n++){
+      const keys = all.filter(c=>c.length===n).map(c=>'f'+c.join('')).filter(k=>!popularKeys.includes(k));
+      if(keys.length) formationGroups.push({title:n+' Reihen', keys});
+    }
+  })();
+  function renderFormationButtons(containerId, team){
+    const wrap = document.getElementById(containerId);
+    wrap.innerHTML = '';
+    formationGroups.forEach(g=>{
+      const h = document.createElement('div');
+      h.className = 'sub'; h.textContent = g.title;
+      wrap.appendChild(h);
+      g.keys.forEach(key=>{
+        const b = document.createElement('button');
+        b.className = 'small formation-btn';
+        b.dataset.formation = key; b.dataset.team = team;
+        b.textContent = formationLabels[key];
+        b.addEventListener('click', ()=> setFormation(key, team));
+        wrap.appendChild(b);
+      });
+    });
+  }
+  function setFormation(key, team){
+    team = team || 'home';
+    state.players = state.players.filter(p=>p.team!==team);
+    let pts = formations[key];
+    if(fieldMode === 'half'){
+      // Formation auf den sichtbaren Halbfeld-Ausschnitt (untere Hälfte) stauchen,
+      // damit keine Spieler außerhalb des Bildausschnitts landen.
+      const ys = pts.map(p=>p[1]);
+      const yMin = Math.min(...ys), yMax = Math.max(...ys);
+      const targetMin = H/2 + 20, targetMax = H - M - 20;
+      pts = pts.map(([x,y])=>[
+        x,
+        yMin===yMax ? (targetMin+targetMax)/2 : targetMin + (y-yMin)/(yMax-yMin)*(targetMax-targetMin)
+      ]);
+    }
+    pts.forEach(([x,y],i)=>{
+      const py = (fieldMode !== 'half' && team==='away') ? H-y : y;
+      state.players.push({id:nextId(), team, num:i+1, x, y:py});
+    });
+    renderPlayers();
+  }
+  renderFormationButtons('formationGridHome', 'home');
+  renderFormationButtons('formationGridAway', 'away');
+  document.getElementById('fEmpty').onclick = ()=>{
+    state.players = state.players.filter(p=>p.team!=='home');
+    renderPlayers();
+  };
+  document.getElementById('fEmptyAway').onclick = ()=>{
+    state.players = state.players.filter(p=>p.team!=='away');
+    renderPlayers();
+  };
+
+  /* ---------------- field mode & orientation ---------------- */
+  document.getElementById('btnFullField').onclick = (e)=>{
+    fieldMode = 'full';
+    applyViewport();
+    setFieldActive(e.target);
+  };
+  document.getElementById('btnHalfField').onclick = (e)=>{
+    fieldMode = 'half';
+    applyViewport();
+    setFieldActive(e.target);
+  };
+  function setFieldActive(btn){
+    document.getElementById('btnFullField').classList.remove('active');
+    document.getElementById('btnHalfField').classList.remove('active');
+    btn.classList.add('active');
+  }
+  document.getElementById('btnQuer').onclick = (e)=>{
+    orientation = 'quer';
+    applyViewport();
+    setOrientationActive(e.target);
+  };
+  document.getElementById('btnLaengs').onclick = (e)=>{
+    orientation = 'laengs';
+    applyViewport();
+    setOrientationActive(e.target);
+  };
+  function setOrientationActive(btn){
+    document.getElementById('btnQuer').classList.remove('active');
+    document.getElementById('btnLaengs').classList.remove('active');
+    btn.classList.add('active');
+  }
+
+  /* ---------------- scenes / timeline ---------------- */
+  function cloneState(){
+    return JSON.parse(JSON.stringify({players:state.players, ball:state.ball, drawings:state.drawings}));
+  }
+  function renderScenes(){
+    const wrap = document.getElementById('scenes');
+    wrap.innerHTML = '';
+    state.scenes.forEach((sc,i)=>{
+      const chip = document.createElement('div');
+      chip.className = 'scene-chip';
+      chip.innerHTML = `Szene ${i+1} <span class="x" data-i="${i}">✕</span>`;
+      chip.addEventListener('click', (e)=>{
+        if(e.target.classList.contains('x')) return;
+        loadScene(i);
+      });
+      chip.querySelector('.x').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        state.scenes.splice(i,1);
+        renderScenes();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+  function loadScene(i){
+    const sc = state.scenes[i];
+    if(!sc) return;
+    state.players = JSON.parse(JSON.stringify(sc.players));
+    state.ball = JSON.parse(JSON.stringify(sc.ball));
+    state.drawings = JSON.parse(JSON.stringify(sc.drawings));
+    disableRotateMode();
+    renderPlayers(); renderBall(); renderDrawings();
+    document.querySelectorAll('.scene-chip').forEach(c=>c.classList.remove('active'));
+    document.querySelectorAll('.scene-chip')[i]?.classList.add('active');
+  }
+  document.getElementById('addScene').onclick = ()=>{
+    disableRotateMode();
+    state.scenes.push(cloneState());
+    renderScenes();
+  };
+
+  function tweenTo(target, duration){
+    return new Promise(resolve=>{
+      const startPlayers = state.players.map(p=>({...p}));
+      const startBall = {...state.ball};
+      const t0 = performance.now();
+      function frame(now){
+        const t = Math.min(1, (now-t0)/duration);
+        const ease = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+        state.players.forEach(p=>{
+          const sp = startPlayers.find(s=>s.id===p.id);
+          const tp = target.players.find(s=>s.id===p.id);
+          if(sp && tp){ p.x = sp.x+(tp.x-sp.x)*ease; p.y = sp.y+(tp.y-sp.y)*ease; }
+        });
+        state.ball.x = startBall.x+(target.ball.x-startBall.x)*ease;
+        state.ball.y = startBall.y+(target.ball.y-startBall.y)*ease;
+        renderPlayers(); renderBall();
+        if(t<1) requestAnimationFrame(frame); else resolve();
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+  document.getElementById('playScenes').onclick = async ()=>{
+    disableRotateMode();
+    for(let i=0;i<state.scenes.length;i++){
+      const sc = state.scenes[i];
+      const targetIds = new Set(sc.players.map(p=>p.id));
+      state.players = state.players.filter(p=>targetIds.has(p.id));
+      sc.players.forEach(tp=>{
+        if(!state.players.find(p=>p.id===tp.id)) state.players.push({...tp});
+      });
+      await tweenTo(sc, 1000);
+      state.drawings = JSON.parse(JSON.stringify(sc.drawings));
+      renderDrawings();
+      document.querySelectorAll('.scene-chip').forEach(c=>c.classList.remove('active'));
+      document.querySelectorAll('.scene-chip')[i]?.classList.add('active');
+      await new Promise(r=>setTimeout(r, 700));
+    }
+  };
+
+  /* ---------------- save / load (Datei auf dem Gerät) ---------------- */
+  document.getElementById('btnSave').onclick = ()=>{
+    const data = { pitch: 'D7', orientation, fieldMode, players: state.players, ball: state.ball, drawings: state.drawings, scenes: state.scenes };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const fileName = ('Taktik-' + new Date().toLocaleDateString('de-DE').replace(/\./g,'-')) + '.json';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('btnLoad').onclick = ()=> document.getElementById('loadFileInput').click();
+  document.getElementById('loadFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const b = JSON.parse(ev.target.result);
+        if(b.pitch !== 'D7'){
+          // Datei stammt aus der D9-Version (Feld 600 x 840) -> Positionen auf das D7-Feld umrechnen.
+          if(!confirm('Diese Datei stammt aus einer anderen Feldgröße (z. B. D9). Positionen und Zeichnungen werden auf das D7-Feld (70 x 35 m) umgerechnet. Trotzdem laden?')) return;
+          const cv = q => ({...q, x: M + (q.x-15)/570*(W-2*M), y: M + (q.y-15)/810*(H-2*M)});
+          const rs = (W-2*M)/570;
+          const convert = o => ({
+            players: (o.players||[]).map(cv),
+            ball: o.ball ? cv(o.ball) : o.ball,
+            drawings: (o.drawings||[]).map(d=>({...d, points:(d.points||[]).map(cv), ...(d.r ? {r:d.r*rs} : {})}))
+          });
+          Object.assign(b, convert(b));
+          b.scenes = (b.scenes||[]).map(sc=>({...sc, ...convert(sc)}));
+        }
+        state.players = b.players || [];
+        state.ball = b.ball || {visible:true,x:W/2,y:H/2};
+        state.drawings = b.drawings || [];
+        state.scenes = b.scenes || [];
+        disableRotateMode();
+        renderPlayers(); renderBall(); renderDrawings(); renderScenes();
+        orientation = b.orientation === 'laengs' ? 'laengs' : 'quer';
+        fieldMode = b.fieldMode === 'half' ? 'half' : 'full';
+        setOrientationActive(document.getElementById(orientation==='laengs' ? 'btnLaengs' : 'btnQuer'));
+        setFieldActive(document.getElementById(fieldMode==='half' ? 'btnHalfField' : 'btnFullField'));
+        applyViewport();
+      }catch(err){
+        alert('Datei konnte nicht gelesen werden — ist es eine gültige Taktiktafel-Datei (.json)?');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  /* ---------------- export png / print ---------------- */
+  document.getElementById('btnExport').onclick = ()=>{
+    const wasRotate = rotateMode;
+    if(wasRotate){ rotateMode = false; renderDrawings(); }
+    const clone = svg.cloneNode(true);
+    if(wasRotate){ rotateMode = true; renderDrawings(); }
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    const cssVars = {
+      '--pitch-dark':'#2c5a3c','--pitch-light':'#33643f','--pitch-line':'rgba(245,243,234,.85)',
+      '--chalk':'#f5f3ea','--home':'#c23b3b','--away':'#2c4a6e','--font-d':'Arial Narrow, sans-serif'
+    };
+    let xml = new XMLSerializer().serializeToString(clone);
+    Object.entries(cssVars).forEach(([k,v])=>{ xml = xml.split(`var(${k})`).join(v); });
+    const svgBlob = new Blob([xml], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      const vb = svg.getAttribute('viewBox').split(' ').map(Number);
+      const vbW = vb[2], vbH = vb[3];
+      const scale = 1600 / Math.max(vbW, vbH);
+      canvas.width = Math.round(vbW*scale); canvas.height = Math.round(vbH*scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob=>{
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'taktiktafel.png';
+        a.click();
+      });
+    };
+    img.src = url;
+  };
+  document.getElementById('btnPrint').onclick = ()=>{
+    const wasRotate = rotateMode;
+    if(wasRotate){ rotateMode = false; renderDrawings(); }
+    window.print();
+    if(wasRotate){ rotateMode = true; renderDrawings(); }
+  };
+
+  /* ---------------- Grundformation wählbar ---------------- */
+  const BASE_KEY = 'taktiktafel_grundformation';
+  const baseSelect = document.getElementById('baseFormationSelect');
+  Object.keys(formationLabels).forEach(key=>{
+    const opt = document.createElement('option');
+    opt.value = key; opt.textContent = formationLabels[key];
+    baseSelect.appendChild(opt);
+  });
+  function getBaseFormation(){
+    const saved = localStorage.getItem(BASE_KEY);
+    return formations[saved] ? saved : 'f312';
+  }
+  function updateBaseHint(key){
+    document.getElementById('baseFormationHint').textContent = 'Aktuelle Grundformation: ' + formationLabels[key];
+  }
+  baseSelect.value = getBaseFormation();
+  updateBaseHint(baseSelect.value);
+  document.getElementById('setBaseFormation').onclick = ()=>{
+    const key = baseSelect.value;
+    localStorage.setItem(BASE_KEY, key);
+    updateBaseHint(key);
+    setFormation(key, 'home');
+    document.getElementById('mirrorAway').click();
+  };
+
+  /* ---------------- init ---------------- */
+  applyViewport();
+  setFormation(getBaseFormation());
+  document.getElementById('mirrorAway').click();
+  renderBall();
+  renderDrawings();
+  renderScenes();
+})();
+</script>
+</body>
+</html>
